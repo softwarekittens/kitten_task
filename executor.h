@@ -15,20 +15,21 @@ public:
     Executor();
 
     // Запустить executor. Будет создано workersCount потоков и на одном потоке будет запущена начальная таска initialTask.
-    void start(int workersCount, std::function<void()> initialTask);
+    void start(size_t workersCount, std::function<void()> initialTask);
 
     void stop();
 
     // Добавить таску. Метод должен вызываться только из тасок
+    // action должен уметь перемещаться (std::move)
     static TaskBuilder addTask(std::string_view name, std::function<void()> action);
 
     friend class Worker;
 private:
-    void onFreeWorker(Worker* worker);
+    void onFreeWorker(Worker* worker, TaskId finishedTaskId);
 
     void collectTasks();
 
-    void findNextTasks(Worker* freeWorker);
+    void runNextTasks();
 
 private:
     std::mutex m_mutex;

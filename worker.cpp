@@ -12,14 +12,17 @@ Worker::Worker(Executor* executor, uint32_t workerIndex)
 void Worker::start() {
     m_isRunning = true;
     while (m_isRunning) {
-        {
-            std::unique_lock lock(m_mutex);
-            while (!m_tasks.empty()) {
-                m_tasks.front()->run();
-                m_tasks.pop();
-            }
+        std::unique_lock lock(m_mutex);
+        std::optional<TaskId> finishedTask = std::nullopt;
+        if (m_task.has_value()) {
+            finishedTask = m_task->getId();
+            m_task->run();
+            m_task = std::nullopt;
         }
-        m_executor->onFreeWorker(this);
+        lock.unlock();
+        if (finishedTask.has_value()) {
+            m_executor->onFreeWorker(this, *finishedTask);
+        }
         waitForTask();
     }
 }
@@ -29,18 +32,19 @@ void Worker::stop() {
     m_waitTaskCondittion.notify_all();
 }
 
-void Worker::pushTasks(std::vector<std::unique_ptr<Task>> tasks) {
+void Worker::pushTask(Task task) {
     std::unique_lock lock(m_mutex);
-    for (size_t i = 0; i < tasks.size(); i++) {
-        m_tasks.push(std::move(tasks[i]));
+    if (m_task.has_value()) {
+        throw std::runtime_error("Fuuuu");
     }
+    m_task = std::move(task);
     lock.unlock();
     m_waitTaskCondittion.notify_all();
 }
 
 void Worker::waitForTask() {
     std::unique_lock lock(m_mutex);
-    if (m_isRunning && m_tasks.empty()) {
+    if (m_isRunning && !m_task.has_value()) {
         m_waitTaskCondittion.wait(lock);
     }
 }

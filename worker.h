@@ -3,10 +3,10 @@
 #include "task.h"
 
 #include <atomic>
-#include <queue>
 #include <condition_variable>
 #include <thread>
 #include <mutex>
+#include <optional>
 
 namespace kitten {
 
@@ -21,7 +21,7 @@ public:
 
     void stop();
 
-    void pushTasks(std::vector<std::unique_ptr<Task>> task);
+    void pushTask(Task task);
 
 private:
     void waitForTask();
@@ -32,7 +32,7 @@ private:
     std::atomic<bool> m_isRunning = false;
     std::mutex m_mutex;
     std::condition_variable m_waitTaskCondittion;
-    std::queue<std::unique_ptr<Task>> m_tasks;
+    std::optional<Task> m_task;
 };
 
 }

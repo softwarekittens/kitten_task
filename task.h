@@ -15,6 +15,8 @@ public:
 
     void run();
 
+    TaskId getId() const;
+
     friend class TaskBuilder;
     friend class Executor;
     friend class Sheduler;
