@@ -1,4 +1,5 @@
 #include "executor.h"
+#include "task_system_exception.h"
 #include <kitten_logger/trace.h>
 #include <deque>
 
@@ -13,29 +14,43 @@ namespace kitten {
 Executor::Executor() {
 }
 
-void Executor::start(size_t workersCount, std::function<void()> initialTask) {
-    std::unique_lock lock(m_mutex);
-    m_sheduler = std::make_unique<Sheduler>(workersCount);
-    m_isRunning = true;
-    std::vector<std::thread> workingThreads;
-    for (size_t i = 0; i < workersCount; i++) {
-        m_workers.push_back(std::make_unique<Worker>(this, i));
-        if (i == 0) {
-            Task task(1, "Initial Task", std::move(initialTask));
-            m_sheduler->markTaskAsStarted(task);
-            m_workers.back()->pushTask(std::move(task));
-        } else {
-            m_freeWorkers.insert(m_workers.back().get());
+void Executor::start(size_t workersCount, std::function<void()> initialTask, UnhandledExceptionFunctor onUnhandledException) {
+    try {
+        std::unique_lock lock(m_mutex);
+        m_sheduler = std::make_unique<Sheduler>(workersCount);
+        m_isRunning = true;
+        std::vector<std::thread> workingThreads;
+        for (size_t i = 0; i < workersCount; i++) {
+            m_workers.push_back(std::make_unique<Worker>(this, i));
+            if (i == 0) {
+                Task task(1, "Initial Task", std::move(initialTask));
+                m_sheduler->markTaskAsStarted(task);
+                m_workers.back()->pushTask(std::move(task));
+            } else {
+                m_freeWorkers.insert(m_workers.back().get());
+            }
+            std::thread workerThread([worker = m_workers.back().get(), index = i, &onUnhandledException](){
+                try {
+                    s_workerIndex = index;
+                    worker->start(onUnhandledException);
+                } catch (std::exception& e) {
+                    if (onUnhandledException) {
+                        TaskSystemException taskSystemException(e);
+                        onUnhandledException(taskSystemException);
+                    }
+                }
+            });
+            workingThreads.push_back(std::move(workerThread));
         }
-        std::thread workerThread([worker = m_workers.back().get(), index = i](){
-            s_workerIndex = index;
-            worker->start();
-        });
-        workingThreads.push_back(std::move(workerThread));
-    }
-    lock.unlock();
-    for (auto& workingThread : workingThreads) {
-        workingThread.join();
+        lock.unlock();
+        for (auto& workingThread : workingThreads) {
+            workingThread.join();
+        }
+    } catch(std::exception& e) {
+        if (onUnhandledException) {
+            TaskSystemException taskSystemException(e);
+            onUnhandledException(taskSystemException);
+        }
     }
 }
 
@@ -53,8 +68,8 @@ TaskBuilder Executor::addTask(std::string_view name, std::function<void()> actio
 }
 
 void Executor::onFreeWorker(Worker* worker, TaskId finishedTaskId) {
-    std::unique_lock lock(m_mutex);
     TRACE_SCOPE;
+    std::unique_lock lock(m_mutex);
 
     if (m_freeWorkers.count(worker) > 0) {
         throw std::runtime_error("KittenTask: Free worker signaled about working.");

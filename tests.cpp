@@ -49,7 +49,7 @@ void testExecutor1() {
     Executor executor;
     executor.start(1, []() {
         std::this_thread::sleep_for(5ms);
-    });
+    }, [](auto&){ });
     saveCollectedTracing("build/kitten_executor_test_1.json");
 }
 
@@ -69,7 +69,7 @@ void testExecutor2() {
         Executor::addTask("Task 1", [](){
             std::this_thread::sleep_for(5ms);
         }).addDelay(30ms);
-    });
+    }, [](auto&){ });
     saveCollectedTracing("build/kitten_executor_test_2.json");
 }
 
@@ -83,7 +83,7 @@ void testExecutor3() {
                 std::this_thread::sleep_for(5ms);
             });
         }
-    });
+    }, [](auto&){ });
     saveCollectedTracing("build/kitten_executor_test_3.json");
 }
 

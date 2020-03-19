@@ -12,18 +12,22 @@ namespace kitten {
 
 class Executor;
 
+using UnhandledExceptionFunctor = std::function<void(std::exception&)>;
+
 // Поток выполнения
 class Worker {
 public:
     Worker(Executor* executor, uint32_t workerIndex);
 
-    void start();
+    void start(UnhandledExceptionFunctor& onUnhandledException);
 
     void stop();
 
     void pushTask(Task task);
 
 private:
+    std::optional<TaskId> runCurrentTask(UnhandledExceptionFunctor& onUnhandledException);
+
     void waitForTask();
 
 private:

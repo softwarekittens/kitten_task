@@ -6,7 +6,9 @@
 
 #include <list>
 #include <set>
+#include <thread>
 #include <mutex>
+#include <functional>
 
 namespace kitten {
 
@@ -15,7 +17,7 @@ public:
     Executor();
 
     // Запустить executor. Будет создано workersCount потоков и на одном потоке будет запущена начальная таска initialTask.
-    void start(size_t workersCount, std::function<void()> initialTask);
+    void start(size_t workersCount, std::function<void()> initialTask, UnhandledExceptionFunctor onUnhandledException);
 
     void stop();
 
@@ -25,6 +27,10 @@ public:
 
     friend class Worker;
 private:
+    std::vector<std::thread> initWorkers();
+
+    std::thread startWorker();
+
     void onFreeWorker(Worker* worker, TaskId finishedTaskId);
 
     void collectTasks();

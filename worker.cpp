@@ -4,22 +4,15 @@
 namespace kitten {
 
 Worker::Worker(Executor* executor, uint32_t workerIndex)
-    : m_executor{executor}
-    , m_workerIndex{workerIndex}
+    : m_executor(executor)
+    , m_workerIndex(workerIndex)
 {
 }
 
-void Worker::start() {
+void Worker::start(UnhandledExceptionFunctor& onUnhandledException) {
     m_isRunning = true;
     while (m_isRunning) {
-        std::unique_lock lock(m_mutex);
-        std::optional<TaskId> finishedTask = std::nullopt;
-        if (m_task.has_value()) {
-            finishedTask = m_task->getId();
-            m_task->run();
-            m_task = std::nullopt;
-        }
-        lock.unlock();
+        std::optional<TaskId> finishedTask = runCurrentTask(onUnhandledException);
         if (finishedTask.has_value()) {
             m_executor->onFreeWorker(this, *finishedTask);
         }
@@ -40,6 +33,23 @@ void Worker::pushTask(Task task) {
     m_task = std::move(task);
     lock.unlock();
     m_waitTaskCondittion.notify_all();
+}
+
+std::optional<TaskId> Worker::runCurrentTask(UnhandledExceptionFunctor& onUnhandledException) {
+    std::unique_lock lock(m_mutex);
+    if (!m_task.has_value()) {
+        return std::nullopt;
+    }
+
+    TaskId currentTaskId = m_task->getId();
+    try {
+        m_task->run();
+    } catch(std::exception& e) {
+        if (onUnhandledException) {
+            onUnhandledException(e);
+        }
+    }
+    return currentTaskId;
 }
 
 void Worker::waitForTask() {
