@@ -49,6 +49,8 @@ std::optional<TaskId> Worker::runCurrentTask(UnhandledExceptionFunctor& onUnhand
             onUnhandledException(e);
         }
     }
+
+    m_task = std::nullopt;
     return currentTaskId;
 }
 
