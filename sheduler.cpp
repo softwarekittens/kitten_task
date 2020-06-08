@@ -1,5 +1,5 @@
 #include "sheduler.h"
-#include <kitten_logger/trace.h>
+#include <kittens_trace/trace.h>
 
 namespace kitten {
 

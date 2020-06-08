@@ -1,6 +1,6 @@
 #include "executor.h"
 #include "task_system_exception.h"
-#include <kitten_logger/trace.h>
+#include <kittens_trace/trace.h>
 #include <deque>
 
 namespace {
